@@ -81,17 +81,35 @@ jobs:
           set -euo pipefail
           cd release
           sha256sum --check SHA256SUMS
+          combined_count=0
           for image in *.img.gz; do
             echo "===== $image ====="
             gzip -t "$image"
-            raw="$(mktemp /tmp/wrtx-image.XXXXXX)"
-            gzip -dc "$image" > "$raw"
-            fdisk -l "$raw"
-            count="$(fdisk -l "$raw" | awk -v p="$raw" 'index($1,p)==1 && substr($1,length(p)+1) ~ /^[0-9]+$/ {n++} END {print n+0}')"
-            rm -f "$raw"
-            test "$count" -ge 2
-            echo "PASS: gzip valid; $count partitions detected"
+            echo "PASS: gzip archive valid"
+
+            # Rootfs-only archives contain a filesystem, not a whole-disk
+            # image, so they must not be checked for a partition table.
+            case "$image" in
+              *-combined*.img.gz)
+                combined_count=$((combined_count + 1))
+                raw="$(mktemp /tmp/wrtx-image.XXXXXX)"
+                trap 'rm -f "$raw"' EXIT
+                gzip -dc "$image" > "$raw"
+                fdisk -l "$raw"
+                count="$(fdisk -l "$raw" | awk -v p="$raw" 'index($1,p)==1 && substr($1,length(p)+1) ~ /^[0-9]+$/ {n++} END {print n+0}')"
+                rm -f "$raw"
+                trap - EXIT
+                test "$count" -ge 2
+                echo "PASS: combined disk image; $count partitions detected"
+                ;;
+              *)
+                echo "PASS: rootfs/archive validated; partition-table check not applicable"
+                ;;
+            esac
           done
+
+          test "$combined_count" -ge 2
+          echo "PASS: validated $combined_count combined disk images"
 
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
