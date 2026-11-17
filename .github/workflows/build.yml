@@ -1,0 +1,84 @@
+name: Build OpenWrt x86-64 Wrtx
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "configs/packages-imagebuilder.txt"
+      - ".github/workflows/build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openwrt-imagebuilder-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install build utilities
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl zstd make
+
+      - name: Download and verify official ImageBuilder
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="openwrt-imagebuilder-25.12.5-x86-64.Linux-x86_64.tar.zst"
+          URL="https://downloads.openwrt.org/releases/25.12.5/targets/x86/64/$FILE"
+          EXPECTED="313221253d9bac534e4a4ee6492a4941b4ba0f43200eceb8d16a4785470ae9df"
+
+          curl --fail --location --retry 3 "$URL" --output "$FILE"
+          echo "$EXPECTED  $FILE" | sha256sum --check
+          mkdir imagebuilder
+          tar --zstd -xf "$FILE" --strip-components=1 -C imagebuilder
+
+      - name: Build generic x86-64 images
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd imagebuilder
+
+          PACKAGES="$(grep -Ev '^[[:space:]]*(#|$)' ../configs/packages-imagebuilder.txt | tr '\n' ' ')"
+          echo "Selected package count: $(wc -w <<< "$PACKAGES")"
+
+          make info
+          make image PROFILE="generic" PACKAGES="$PACKAGES"
+
+      - name: Generate checksums and build metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          find imagebuilder/bin/targets/x86/64 -maxdepth 1 -type f \
+            \( -name '*.img.gz' -o -name '*.vdi' -o -name '*.vmdk' -o -name '*.qcow2' -o -name '*.manifest' \) \
+            -exec cp {} release/ \;
+
+          test -n "$(find release -maxdepth 1 -type f -name '*.img.gz' -print -quit)"
+          cd release
+          sha256sum * > SHA256SUMS
+          {
+            echo "OpenWrt release: 25.12.5"
+            echo "Target: x86/64"
+            echo "Profile: generic"
+            echo "Boot mode: Legacy BIOS (verified on the running device)"
+            echo "Filesystem: ext4"
+            echo "Build source: official OpenWrt ImageBuilder"
+            echo "Repository commit: $GITHUB_SHA"
+            echo "Package manifest: configs/packages-imagebuilder.txt"
+          } > BUILD-INFO.txt
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenWrt-Wrtx-25.12.5-x86-64
+          path: release/
+          if-no-files-found: error
+          retention-days: 30
