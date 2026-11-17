@@ -37,7 +37,6 @@ jobs:
         with:
           tag_name: v25.12.5-wrtx-build-5
           name: OpenWrt Wrtx 25.12.5 - Build #5
-          target_commitish: 5e9477a15ef26de2861e49b88ee709e3b0daa0f4
           body: |
             First official GitHub Release for OpenWrt Wrtx 25.12.5.
 
