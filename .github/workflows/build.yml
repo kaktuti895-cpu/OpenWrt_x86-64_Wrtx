@@ -50,7 +50,7 @@ jobs:
           echo "Selected package count: $(wc -w <<< "$PACKAGES")"
 
           make info
-          make image PROFILE="generic" PACKAGES="$PACKAGES"
+          # The running router has a roughly 1 GiB root partition. The ImageBuilder\n          # default (104 MiB) is too small for this package selection.\n          make image PROFILE="generic" ROOTFS_PARTSIZE="1024" PACKAGES="$PACKAGES"
 
       - name: Generate checksums and build metadata
         shell: bash
