@@ -8,7 +8,7 @@ on:
       - ".github/workflows/build.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: openwrt-imagebuilder-${{ github.ref }}
@@ -118,3 +118,22 @@ jobs:
           path: release/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v25.12.5-wrtx-build-${{ github.run_number }}
+          name: OpenWrt Wrtx 25.12.5 (Build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          body: |
+            Automated OpenWrt x86-64 Wrtx release.
+
+            - OpenWrt version: 25.12.5
+            - Target: x86/64, generic
+            - Firmware variants: BIOS and EFI; ext4 and squashfs
+            - SHA256SUMS and BUILD-INFO.txt are included.
+            - Firmware has passed the workflow archive and partition-table validation.
+            - Physical-device boot testing is still required before installation.
+          files: release/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
