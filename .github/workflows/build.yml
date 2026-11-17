@@ -25,7 +25,7 @@ jobs:
       - name: Install build utilities
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl zstd make
+          sudo apt-get install -y curl zstd make util-linux gzip
 
       - name: Download and verify official ImageBuilder
         shell: bash
@@ -68,12 +68,30 @@ jobs:
             echo "OpenWrt release: 25.12.5"
             echo "Target: x86/64"
             echo "Profile: generic"
-            echo "Boot mode: Legacy BIOS (verified on the running device)"
-            echo "Filesystem: ext4"
+            echo "Boot variants: BIOS and EFI images generated; physical-device boot test pending"
+            echo "Root filesystems: ext4 and squashfs"
             echo "Build source: official OpenWrt ImageBuilder"
             echo "Repository commit: $GITHUB_SHA"
             echo "Package manifest: configs/packages-imagebuilder.txt"
           } > BUILD-INFO.txt
+
+      - name: Validate firmware archives and partition tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release
+          sha256sum --check SHA256SUMS
+          for image in *.img.gz; do
+            echo "===== $image ====="
+            gzip -t "$image"
+            raw="$(mktemp /tmp/wrtx-image.XXXXXX)"
+            gzip -dc "$image" > "$raw"
+            fdisk -l "$raw"
+            count="$(fdisk -l "$raw" | awk -v p="$raw" 'index($1,p)==1 && substr($1,length(p)+1) ~ /^[0-9]+$/ {n++} END {print n+0}')"
+            rm -f "$raw"
+            test "$count" -ge 2
+            echo "PASS: gzip valid; $count partitions detected"
+          done
 
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
