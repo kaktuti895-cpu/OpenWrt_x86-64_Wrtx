@@ -24,6 +24,8 @@ Project for building, maintaining, documenting, and restoring a custom OpenWrt x
 - Keep at least one tested backup before changing partitions or flashing firmware.
 - Record the exact OpenWrt version, target, packages, and build configuration for every release.
 
-## Project status
+## Build status
 
-Repository structure and documentation are being established. Hardware details and the exact OpenWrt release/build target must be confirmed before generating device-specific build files.
+The initial GitHub Actions ImageBuilder workflow targets OpenWrt 25.12.5, x86/64, generic profile, and the observed Legacy BIOS/ext4 device baseline. See [`docs/imagebuilder-build.md`](docs/imagebuilder-build.md) for the run procedure and safety checks. The initial package selection is in [`configs/packages-imagebuilder.txt`](configs/packages-imagebuilder.txt).
+
+The first build is a baseline, not yet a byte-for-byte reproduction. Kernel modules and third-party themes remain under compatibility review. Do not flash an artifact until its image type, checksum, boot behavior, and required services have been tested on a spare drive.
