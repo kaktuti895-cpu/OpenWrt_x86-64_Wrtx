@@ -1,0 +1,53 @@
+name: Publish existing Build #5 as first GitHub Release
+
+on:
+  push:
+    paths:
+      - ".github/workflows/publish-build-5.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download already validated Build #5 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OpenWrt-Wrtx-25.12.5-x86-64
+          path: release
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 44193595230
+
+      - name: Verify release payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s release/SHA256SUMS
+          test -s release/BUILD-INFO.txt
+          cd release
+          sha256sum --check SHA256SUMS
+          for image in *.img.gz; do gzip -t "$image"; done
+
+      - name: Publish first GitHub Release from Build #5
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v25.12.5-wrtx-build-5
+          name: OpenWrt Wrtx 25.12.5 - Build #5
+          target_commitish: 5e9477a15ef26de2861e49b88ee709e3b0daa0f4
+          body: |
+            First official GitHub Release for OpenWrt Wrtx 25.12.5.
+
+            This release republishes the exact artifact produced by validated GitHub Actions Build #5 (run 44193595230), not a new firmware build.
+
+            - Target: x86/64 generic
+            - Variants: BIOS and EFI; ext4 and squashfs
+            - Includes SHA256SUMS and BUILD-INFO.txt
+            - SHA256 and gzip integrity are rechecked before publishing.
+            - Physical-device boot testing remains required before installation.
+          files: release/*
+          fail_on_unmatched_files: true
+          generate_release_notes: false
